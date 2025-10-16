@@ -4,47 +4,36 @@
 #include <unordered_map>
 #include <mutex>
 #include <optional>
+#include <vector>
+#include <memory>
 
-/*
-LRU design:
-- Doubly-linked list `items_` holds (key, value). Front = MRU, back = LRU.
-- Hash map `map_` maps key -> iterator into list for O(1) lookup/move.
-- Mutex guards all operations for Day 1 simplicity.
-*/
+#include "eviction.hpp"
 
 class LruCache {
 public:
-    explicit LruCache(size_t capacity) : cap_(capacity) {}
+    explicit LruCache(size_t capacity)
+      : cap_(capacity), strategy_(std::make_shared<LRUStrategy>()) {}
 
-    // Return value if present; move node to MRU
     std::optional<std::string> get(const std::string& key) {
         std::lock_guard<std::mutex> lock(mu_);
         auto it = map_.find(key);
         if (it == map_.end()) return std::nullopt;
-        // move node to front (MRU)
         items_.splice(items_.begin(), items_, it->second);
-        return it->second->second; // value
+        return it->second->second;
     }
 
-    // Insert or update key; evict LRU if capacity exceeded
     void put(const std::string& key, const std::string& value) {
         std::lock_guard<std::mutex> lock(mu_);
         auto it = map_.find(key);
         if (it != map_.end()) {
-            it->second->second = value;                   // update
-            items_.splice(items_.begin(), items_, it->second); // move to MRU
+            it->second->second = value;
+            items_.splice(items_.begin(), items_, it->second);
             return;
         }
-        // new item at MRU
         items_.emplace_front(key, value);
         map_[key] = items_.begin();
 
-        if (map_.size() > cap_) {
-            // evict LRU at back
-            auto &node = items_.back();
-            map_.erase(node.first);
-            items_.pop_back();
-        }
+        if (map_.size() > cap_) evict_one_unlocked();
     }
 
     size_t size() const {
@@ -52,11 +41,46 @@ public:
         return map_.size();
     }
 
+    void set_strategy(std::shared_ptr<EvictionStrategy> s) {
+        std::lock_guard<std::mutex> lock(mu_);
+        strategy_ = std::move(s);
+    }
+
+private:
+    void evict_one_unlocked() {
+        auto candidates = build_candidates_unlocked(8);
+        std::optional<std::string> victim;
+        if (strategy_) victim = strategy_->choose_victim(candidates);
+
+        if (!victim.has_value()) {
+            auto &node = items_.back();
+            map_.erase(node.first);
+            items_.pop_back();
+            return;
+        }
+        auto m = map_.find(*victim);
+        if (m != map_.end()) {
+            items_.erase(m->second);
+            map_.erase(m);
+        } else {
+            auto &node = items_.back();
+            map_.erase(node.first);
+            items_.pop_back();
+        }
+    }
+
+    std::vector<std::string> build_candidates_unlocked(size_t max_n) const {
+        std::vector<std::string> cands; cands.reserve(max_n);
+        auto it = items_.rbegin();
+        for (size_t i=0; it != items_.rend() && i<max_n; ++it, ++i) cands.push_back(it->first);
+        return cands;
+    }
+
 private:
     mutable std::mutex mu_;
     size_t cap_;
-    // FRONT = MRU, BACK = LRU
     std::list<std::pair<std::string, std::string>> items_;
     std::unordered_map<std::string,
-        std::list<std::pair<std::string, std::string>>::iterator> map_;
+      std::list<std::pair<std::string, std::string>>::iterator> map_;
+    std::shared_ptr<EvictionStrategy> strategy_;
 };

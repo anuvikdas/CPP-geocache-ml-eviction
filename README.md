@@ -43,21 +43,21 @@ Client → HTTP → C++ Cache (LRU core)
 Mechanism vs policy: the cache manages items and recency; the strategy chooses the eviction victim. If ML is slow or down, the cache immediately falls back to LRU to stay reliable.
 
 ## Quickstart (5 commands)
-# 1 Build the C++ cache
+# 1. Build the C++ cache
 mkdir -p build && cd build && cmake .. && cmake --build . -j && cd ..
 
-# 2 Start the ML sidecar
+# 2. Start the ML sidecar
 (cd ml_sidecar && python3 -m venv .venv && source .venv/bin/activate && \
  pip install -r requirements.txt && uvicorn app:app --port 5000) &
 
-# 3 Start the Origin (simulated slow content)
+# 3. Start the Origin (simulated slow content)
 (cd origin && python3 -m venv .venv && source .venv/bin/activate && \
  pip install fastapi uvicorn && uvicorn app:app --port 7000) &
 
-# 4 Run the cache (ML mode; omit env var for pure LRU)
+# 4. Run the cache (ML mode; omit env var for pure LRU)
 (EVICTION_MODE=ML ML_HOST=127.0.0.1 ML_PORT=5000 ./build/geocache) &
 
-# 5 Preload lessons and run a quick load
+# 5. Preload lessons and run a quick load
 python tools/preload.py
 python tools/load_ab.py
 

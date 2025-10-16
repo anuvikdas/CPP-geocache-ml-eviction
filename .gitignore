@@ -1,0 +1,24 @@
+# Build outputs
+/build/
+/CMakeFiles/
+/CMakeCache.txt
+/*.cmake
+/compile_commands.json
+
+# Python virtualenvs & caches
+**/.venv*/
+__pycache__/
+*.pyc
+
+# Runtime artifacts
+/data/
+/ml_sidecar/models/
+/ml_sidecar/tmp/
+/reports/
+
+# Docker runtime
+/deploy/grafana-data/
+
+# OS/editor
+.DS_Store
+.vscode/

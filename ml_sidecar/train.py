@@ -4,6 +4,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
 import joblib, os
 
+REAL_DERIVED = "tmp/train.csv"
 FEATS = ["recency_us", "access_count", "size_bytes", "fetch_cost_ms"]
 
 def synthetic_df(n=2000, seed=0):
@@ -29,6 +30,8 @@ def train_from_csv(path):
   return acc
 
 def train_auto():
+  if os.path.exists(REAL_DERIVED):
+    return train_from_csv(REAL_DERIVED)
   path = os.path.join("..","data","access_log.csv")
   if os.path.exists(path): return train_from_csv(path)
   df = synthetic_df()
